@@ -50,6 +50,15 @@ module.exports = {
 
 在修改`.babelrc`为`babel.config.js`后，发现还是没有生效。。。
 
+```
+// babel.config.js
+module.export = {
+  "presets": [
+    "@vue/babel-preset-app"
+  ]
+}
+```
+
 最后通过查看[vue cli issues#1568](https://github.com/vuejs/vue-cli/issues/1568)，发现`transpileDependencies `需要在`babel.config.js`中设置`process.env.VUE_CLI_BABEL_TRANSPILE_MODULES = true`，才能生效。
 
 经过实践，发现依然无法生效，依然是[vue cli issues#1568](https://github.com/vuejs/vue-cli/issues/1568)，vue作者本人提到：
@@ -113,3 +122,4 @@ module.exports = {
 
 4. 在`package.json`的script脚本中添加`"postinstall": "patch-package"`后续所有下载代码，运行`npm install`后，都会运行`patch-package`将上一步生成的patches文件打补丁到`node_modules`中去
 
+问题解决。
