@@ -99,6 +99,23 @@ scroll-view的加载更多事件实际上是监听的滚动区域到底部的距
 
 ## H5
 
+### Refused to set unsafe header "cookie"
+
+【问题描述】
+
+H5模式下跨域请求的时候报错：Refused to set unsafe header "Cookie"
+导致无法携带Cookie登录
+
+【问题原因】
+
+W3C规范规定在部分请求头部是禁止修改的，其中Cookie就是一个
+
+但是如果H5前端和后台部署在一起的时候，也没有碰到这个问题，因此这个禁止应该是在跨域的时候会有这个问题。
+
+【解决方案】
+
+H5模式下，浏览器会自动处理cookie不需要手动设置，因此H5模式下通过条件编译移除Cookie的头部设置即可
+
 
 
 ## 小程序 && H5
@@ -157,6 +174,127 @@ IOS手机兼容性问题。
 
 给input绑定keydown事件，监听keyCode为13时，阻止默认行为
 
+### 前后端分离cookie无法设置的问题
+
+【问题描述】
+
+前后端部署分离，且在不同的域名情况下，后台通过`set-cookie`无法设置cookie，导致无法完成鉴权。
+
+【问题原因】
+
+Chrome 51 开始，浏览器的 Cookie 新增加了一个`SameSite`属性，用来防止 CSRF 攻击和用户追踪。禁止第三方cookie的设置，以及禁止携带cookie。
+
+【解决方案】
+
+> https://blog.csdn.net/weixin_40686603/article/details/105265565
+
+1. 后端修改
+
+   - 设置`Access-Control-Allow-Origin`为指定域名，不能用`*`，否则无法设置cookie
+
+   - 设置`Access-Control-Allow-Credentials`为true，告知前端可以请求头携带cookie
+
+2. 前端修改
+
+   - `axios.defaults.withCredentials = true`指示允许使用cookie创建一个跨站控制请求，同域名下设置此属性无效
+
+### 前后端Cookie鉴权方案设计
+
+【问题背景】
+
+正常情况下前后端的交互如下图所示：
+
+```sequence
+participant 前端
+participant 后台
+
+前端 -> 后台: 1.login:request发起登录请求
+后台 -> 前端: 2.login:response，携带Set-Cookie响应头部
+前端 -> 前端: 3.浏览器识别到Set-Cookie响应头部，设置到Cookie中
+前端 -> 后台: 4.queryUserInfo:request发起请求时会携带Cookie
+后台 -> 后台: 5.后台收到请求后，会对Cookie进行鉴权
+后台 -> 前端: 6.queryUserInfo:response，鉴权通过后返回的响应
+```
+
+前后端分开部署的情况如下图所示，相比上一个图而言，多出了前三步。
+
+```sequence
+participant 前端
+participant 后台
+
+前端 -> 前端: 0.设置baseUrl为后台部署的域名
+前端 -> 前端: 1.设置withCredentials为true，以允许使用cookie创建跨站请求
+后台 -> 后台: 2.设置Access-Control-Allow-Origin为前端域名，不能设置为*
+后台 -> 后台: 3.设置Access-Control-Allow-Credentials为true，允许前端携带cookie请求
+前端 -> 后台: 4.login:request发起登录请求
+后台 -> 前端: 5.login:response，携带Set-Cookie响应头部，以及
+前端 -> 前端: 6.浏览器识别到Set-Cookie响应头部，设置到Cookie中
+前端 -> 后台: 7.queryUserInfo:request发起请求时会携带Cookie
+后台 -> 后台: 8.后台收到请求后，会对Cookie进行鉴权
+后台 -> 前端: 9.queryUserInfo:response，鉴权通过后返回的响应
+```
+
+正常情况下小程序和后台交互如下图所示：
+
+```mermaid
+graph LR
+	user[用户]
+	mp[小程序]
+	wx[微信平台]
+	server[后台服务器]
+	user --访问--> mp
+	mp --发起get请求获取静态资源--> wx
+	mp --发起post请求查询数据--> wx
+	wx --转发post到服务器--> server
+	server --响应post请求--> wx
+	wx --响应post请求--> mp
+```
+
+但是小程序和H5的后台共用时如下图所示：
+
+```mermaid
+graph LR
+	user[用户]
+	mp[小程序]
+	h5[APP]
+	h5Server[APP部署服务器]
+	wx[微信平台]
+	server[后台服务器]
+	user --访问--> mp
+	mp --发起get请求获取静态资源--> wx
+	mp --发起post请求查询数据--> wx
+	wx --转发post到服务器--> server
+	server --响应post请求--> wx
+	wx --响应post请求--> mp
+	user --访问--> h5
+	h5 --发起get请求获取静态资源--> h5Server
+	h5 --发起post请求查询数据--> server
+	server --响应post请求--> h5
+```
+
+小程序和H5都是使用Cookie的请求header进行鉴权时，小程序由于是微信后台转发了请求，所以不会存在跨域的问题，而H5会有跨域的问题，所以需要设置如下：
+
+- 设置`Access-Control-Allow-Origin`为指定域名，不能用`*`，否则无法设置cookie
+- 设置`Access-Control-Allow-Credentials`为true，告知前端可以请求头携带cookie
+
+但是如果设置了允许域名为指定域名后，会导致小程序无法访问，因为小程序的域名和H5的域名不一致。
+
+但是如果不设置成上述属性，只设置`Access-Control-Allow-Origin:*`会导致H5模式无法设置cookie，因为cookie的`sameSite`特性不允许第三方设置cookie，从而H5无法完成鉴权。
+
+【解决方案】
+
+方案一：
+
+修改小程序和H5的鉴权字段，抛弃Cookie，使用`Authorization`字段进行鉴权
+
+方案二：
+
+小程序和H5分开请求访问不同的端口，H5的请求端口跨域设置为指定域名，小程序的则不做设置。
+
+方案三（推荐）：
+
+前后端部署在一起，这样就不会有跨域的问题了。
+
 ## IE
 
 
@@ -176,4 +314,6 @@ IOS手机兼容性问题。
 【解决方案】
 
 后台提供要下载的文件url给前端，使用a标签下载即可
+
+
 
