@@ -47,12 +47,14 @@ http://localhost:8080/index
 
 在vue应用构建的时候，我们会使用`Vue.use(VueRouter)`以插件的方式安装`VueRouter`，同时在Vue的实例上挂载路由的实例，使用`Vue.use`是为了让路由插件可以使用vue。
 
-```
+```js
 import Vue from 'vue'
 import App from './App.vue'
 import router from './router'
+import VueRouter from 'vue-router';
 
-Vue.config.productionTip = false
+Vue.config.productionTip = false;
+Vue.use(VueRouter);
 
 let a = new Vue({
   router,
@@ -60,11 +62,11 @@ let a = new Vue({
 }).$mount('#app')
 ```
 
-## 路由注册
+## 插件注册
 
 `Vue.use`的源码如下所示，定义在`vue/src/core/global-api/use.js`中。
 
-```
+```js
 export function initUse (Vue: GlobalAPI) {
     Vue.use = function (plugin: Function | Object) {
         // 判断重复安装插件
@@ -72,6 +74,8 @@ export function initUse (Vue: GlobalAPI) {
         if (installedPlugins.indexOf(plugin) > -1) {
             return this
         }
+        
+        // 去除plugin参数，并将参数转换成数组
         const args = toArray(arguments, 1)
         // 插入 Vue
         args.unshift(this)
@@ -94,7 +98,7 @@ export function initUse (Vue: GlobalAPI) {
 
 ## 路由安装
 
-Vue-Router 的入口文件是 `src/index.js`，其中定义了 `VueRouter` 类，也实现了 `install` 的静态方法：`VueRouter.install = install`，它的定义在 `src/install.js` 中。
+Vue-Router 的入口文件是 `vue-router/src/index.js`，其中定义了 `VueRouter` 类，也实现了 `install` 的静态方法：`VueRouter.install = install`，``install`方法的定义在 `src/install.js` 中。
 
 ```
 import View from './components/view'
@@ -160,7 +164,7 @@ export function install (Vue) {
   Vue.component('RouterView', View)
   Vue.component('RouterLink', Link)
   
-    const strats = Vue.config.optionMergeStrategies
+  const strats = Vue.config.optionMergeStrategies
   // use the same hook merging strategy for route hooks
   strats.beforeRouteEnter = strats.beforeRouteLeave = strats.beforeRouteUpdate = strats.created
 }

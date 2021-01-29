@@ -116,6 +116,89 @@ W3C规范规定在部分请求头部是禁止修改的，其中Cookie就是一�
 
 H5模式下，浏览器会自动处理cookie不需要手动设置，因此H5模式下通过条件编译移除Cookie的头部设置即可
 
+### max-height导致子元素设置height:100%超出高度时会溢出
+
+【问题描述】
+
+结构如下所示，如果子元素的内容高度超出100后，内容会溢出，而且无法滚动。
+
+```
+<view style="max-height:500px">
+	<scroll-view style="height:100%">
+	</scroll-view>
+</view>
+```
+
+【问题原因】
+
+父元素设置了max-height属性时，子元素设置百分比高度属性无法生效，因为页面元素高度是从里往外计算的，如果父元素没有设置一个确定的高度，子元素百分比高度计算无法计算。
+
+【解决方案】
+
+父元素设置固定高度即可。
+
+### h5网页input的type设置为number，maxlength属性无效
+
+【问题描述】
+
+设置了number的input，在h5模式下maxlength会失效。
+
+```
+<input type="number" maxlength="11" >
+```
+
+【问题原因】
+
+input组件兼容性问题
+
+【解决方案】
+
+```
+<input type="number " oninput="checkTextLength(this ,11)">
+<script type="text/javascript ">
+    function checkTextLength(obj, length) {
+        if(obj.value.length > length)  {
+            obj.value = obj.value.substr(0, length);
+        }
+    }
+</script>
+```
+
+### APP内嵌H5无法获取定位信息
+
+【问题描述以及原因】
+
+H5：安卓手机在原生App内嵌H5时，无法定位需要原生App处理Webview。
+
+> https://uniapp.dcloud.io/api/location/location?id=getlocation
+>
+> https://www.jianshu.com/p/3147e5d59006
+
+【解决方案】
+
+和APP原生交互获取
+
+### H5模式css3的var函数没有生效
+
+【问题描述】
+
+在H5模式中使用评分组件时，使用了css3的var函数设置margin-left，但是发现没有生效
+
+```
+$gutter: var(--gutter);
+.rate {
+	margin-left: $gutter;
+}
+```
+
+【问题原因】
+
+因为gutter变量使用了rpx单位
+
+【解决方案】
+
+将rpx转换为px单位即可。
+
 
 
 ## 小程序 && H5
@@ -294,6 +377,20 @@ graph LR
 方案三（推荐）：
 
 前后端部署在一起，这样就不会有跨域的问题了。
+
+### type为number的input会导致maxlength失效
+
+【问题描述】
+
+通过动态设置input的type为number，并设置maxlength为11，在H5模式下，长度限制会失效
+
+【问题原因】
+
+组件兼容性问题
+
+【解决方案】
+
+input的type设置成固定的number，不要动态设置即可
 
 ## IE
 
