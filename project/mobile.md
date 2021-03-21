@@ -56,6 +56,21 @@ touchmove只有在scroll-view到顶部了往下滑，或者到底部了往上滑
 
 出现弹窗的时候，将textarea组件替换为view显示
 
+### input聚焦时快速点击按钮显示遮罩层，input不会被覆盖
+
+【问题描述】
+
+在点击input输入框聚焦后，快速点击按钮或者内容显示遮罩层，发现遮罩层无法覆盖input输入框，input输入框显示光标闪烁，以及可以输入内容
+
+【问题原因】
+
+input输入微信小程序客户端撞见的原生组件，脱离了webview渲染流程外，层级最高，无论z-index多少，都无法被覆盖。
+
+【解决方案】
+
+1. 出现弹窗的时候，将input组件替换为view显示
+2. 监听input组件的keyboardheightchange事件，并在回调函数中判断如果有显示遮罩则调用`uni.hideKeyboard();`隐藏软键盘，不能使用focus事件，测试过程中发现focus事件是个异步事件，不可控，导致概率性无法隐藏软键盘
+
 ### scroll-view的scrolltolower事件在下滑过快的时候无法触发
 
 【问题描述】
@@ -96,6 +111,24 @@ scroll-view的加载更多事件实际上是监听的滚动区域到底部的距
 【缺点】：
 
 无法自动触发加载更多事件，需要滑动到底部后，用户继续上拉，才能触发加载更多。
+
+### wx.location定位fail原因汇总
+
+fail返回的对象 errMsg 可能返回的值，需要根据错误原因，toast提示用户不同的信息。
+
+- `getLocation:fail auth deny`：用户在小程序中未授权
+
+- `getLocation:fail:auth denied`：用户在小程序中未授权
+
+- `getLocation:fail authorize no response` ：用户在小程序中未授权 （新老版本、平台返回不同）
+
+- `getLocation:fail system permission denied`：未给微信位置授权
+
+- `getLocation:fail:ERROR_NOCELL&WIFI_LOCATIONSWITCHOFF`：没开启系统定位
+
+- `getLocation:fail:ERROR_NETWORK`：网络异常
+
+- `getLocation:fail:timeout`：定位超时
 
 ## H5
 
@@ -199,6 +232,22 @@ $gutter: var(--gutter);
 
 将rpx转换为px单位即可。
 
+### APP内嵌H5碰到”连接服务器超时，点击屏幕重试“
+
+【问题描述】
+
+在原生APP内嵌H5，点击路由跳转的时候会出现`连接服务器超时，点击屏幕重试`的错误。
+
+【问题原因】
+
+和APP联调的时候，由于频繁更新服务器文件，导致入口文件都是一样的名称index.html，但是其他的文件会由于重编译的原因，文件名称被修改，导致使用旧的缓存index文件请求旧的路由文件会出现错误。
+
+> https://ask.dcloud.net.cn/question/92660
+
+【解决方案】
+
+APP访问的时候，忽略缓存，始终访问最新的web文件即可。
+
 
 
 ## 小程序 && H5
@@ -216,6 +265,20 @@ IOS手机兼容性问题。
 【解决方案】
 
 使用`padding-bottom`，或者设置高度为所需高度的分割条。
+
+### scroll-view未被占满时也会出现滚动
+
+【问题描述】
+
+scroll-view设置为高度500px，内容只有100px，但是也会出现滚动的现象
+
+【问题原因】
+
+当 scroll-view 组件的第一个直接子元素设置了 `margin-top` 时即使 scroll-view 只有一行也可以滚动。
+
+【解决方案】
+
+去掉第一个元素的 margin-top
 
 ### 0.5px分割线在部分手机特殊情况下绘制不出来
 
