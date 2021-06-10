@@ -71,7 +71,7 @@ module.export = {
 
 通过一番尝试babel转译node_modules下的代码无果后，想到另外一个解决方案：`patch-package`。
 
-1. `npm install --save-dev patck-package postinstall-postinstall `，安装模块依赖
+1. `npm install --save-dev patch-package postinstall-postinstall `，安装模块依赖
 
 2. 通过修改`node-rsa`中源码，将`const`关键字通通修改为`var`关键字
 
@@ -123,3 +123,39 @@ module.export = {
 4. 在`package.json`的script脚本中添加`"postinstall": "patch-package"`后续所有下载代码，运行`npm install`后，都会运行`patch-package`将上一步生成的patches文件打补丁到`node_modules`中去
 
 问题解决。
+
+## TypeError: this.getOptions is not a function at runMicrotasks
+
+**问题描述**
+
+项目编译的时候碰到错误如下所示：
+
+```
+ error  in ./src/components/uni-forms-item/uni-forms-item.vue?vue&type=style&index=0&id=39373d84&lang=scss&scoped=true&
+
+TypeError: this.getOptions is not a function
+    at runMicrotasks (<anonymous>)
+
+
+ @ ./src/components/uni-forms-item/uni-forms-item.vue?vue&type=style&index=0&id=39373d84&lang=scss&scoped=true& 1:0-872 1:888-891 1:893-1762 1:893-1762
+ @ ./src/components/uni-forms-item/uni-forms-item.vue
+ @ ./node_modules/@dcloudio/vue-cli-plugin-uni/packages/vue-loader/lib/loaders/templateLoader.js??vue-loader-options!./node_modules/@dcloudio/vue-cli-plugin-uni/packages/webpack-preprocess-loader??ref--14-0!./node_modules/@dcloudio/webpack-uni-mp-loader/lib/template.js!./node_modules/@dcloudio/vue-cli-plugin-uni/packages/webpack-uni-app-loader/page-meta.js!./node_modules/@dcloudio/vue-cli-plugin-uni/packages/vue-loader/lib??vue-loader-options!./node_modules/@dcloudio/webpack-uni-mp-loader/lib/style.js!./src/pages/extUI/forms/forms.nvue?vue&type=template&id=4eeabe92&
+ @ ./src/pages/extUI/forms/forms.nvue?vue&type=template&id=4eeabe92&
+ @ ./src/pages/extUI/forms/forms.nvue
+ @ ./src/main.js?{"page":"pages%2FextUI%2Fforms%2Fforms"}
+```
+
+**问题原因**
+
+```
+    "sass-loader": "^11.1.0",
+```
+
+上网搜索，发现 `sass-loader@11.1.0` 版本需要 `webpack@5.0.0` ，而 `@vue/cli@4.5.0` 所用的是 `webpack@4`，所以需要将 `sass-loader`的版本降到11以下
+
+**解决方案**
+
+第一步： `yarn remove sass-loader`
+
+第二步：`yarn add sass-loader@10.1.1 --dev`
+
