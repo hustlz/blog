@@ -647,7 +647,10 @@ module.exports = {
     rules: {
         'indent': [2, 4], // 强制使用4个空格
         'no-shadow-restricted-names': 0, // 禁止将标识符定义为受限的名字
-        'no-prototype-builtins': 0 // 禁止直接调用 Object.prototypes 的内置属性
+        'no-prototype-builtins': 0, // 禁止直接调用 Object.prototypes 的内置属性
+        'vue/html-indent': [2, 4],
+        'no-console': 'off', // 允许存在console日志
+        'semi': [2, 'always'], // 要求或禁止使用分号代替 ASI (always|never)
     }
 }
 
@@ -693,6 +696,263 @@ module.exports = {
 ```
 
 4. 配置完成，重启vscode，在保存时就会自动修复eslint的报错。
+
+## validator
+
+对于表单输入，统一制定校验规则和检测方法
+
+```js
+// zh-CN.js
+export default {
+    validator: {
+        teamNameInvalid: '团队名称只允许中英文和数字'
+    }
+}
+```
+
+```js
+// validator.js
+import { installLanguage, $t } from "../language/index.js";
+installLanguage(require("./language/zh-CN.js").default);
+
+let regex = {
+    teamName: /^[a-zA-Z0-9\u4e00-\u9fa5]{1, 30}$/
+};
+
+let utils = {
+    checkTeamName: (name) => {
+        if (regex.teamName.test(name)) {
+            return true
+        } else {
+            return $t('validator.teamNameInvalid');
+        }
+    }
+};
+
+export default {
+    regex,
+    utils
+};
+```
+
+
+
+## 内嵌到APP联调
+
+### 手机内嵌SDK版本和uniapp小程序编译SDK版本同步
+
+[官方问题参考链接](uni-app运行环境版本和编译器版本不一致的问题)
+
+**项目中SDK的版本**
+
+1. 如果项目是HBuilderX创建的，则是HBuilderX的版本号，更新HBuilderX会改变
+
+2. 如果是cli创建的项目，即根目录是package.json，那么编译环境版本号是创建cli时生成的，不管HBuilderX如何升级，cli项目的编译器并不会跟随HBuilderX升级而升级，需手动升级，修改package.json中的包`@dcloudio/*`的版本为`2.0.0-31920210607001`，对应的编译器的版本就是3.1.17
+
+### APP无法显示iconfont
+
+【问题描述】
+
+uniapp小程序在app中无法显示iconfont图标
+
+【问题原因】
+
+iconfont.css文件中条件注释，app-plus时没有编译iconfont文件的引入，导致无法识别图标
+
+【解决方案】
+
+移除条件编译注释即可，app和小程序都可以识别woff2格式的iconfont
+
+### HbuilderX编译wgt包无法指定多环境
+
+【问题描述】
+
+由于使用HbuilderX编译时，无法指定模式，从而无法指定多环境，不利于调试
+
+【解决方案】
+
+>目前使用`npm run build:app-plus`会在`/dist/build/app-plus`下生成app打包资源。如需制作wgt包，将`app-plus`中的文件压缩成zip（注意：不要包含`app-plus目录`），再重命名为`${appid}.wgt`， `appid`为`manifest.json`文件中的`appid`。
+
+因此可以使用我们自己的多环境编译技术，`npm run build:custom app-plus-build test1`来指定编译环境模式，运行的平台是`app-plus`
+
+### 快速打包成wgt
+
+【问题描述】
+
+自己使用命令打包时，需要手动修改dist/app-plus中的文件为zip包，比较麻烦且繁琐，而且无法支持线上部署发布。
+
+【解决方案】
+
+手动编写node脚本进行zip压缩。
+
+第一步：`npm install -D jszip`
+
+第二步：
+
+```js
+let fs = require('fs');
+let path = require('path');
+let JSZip = require('jszip');
+let manifest =  require('./src/manifest.json');
+let zip = new JSZip();
+let config = {    // 文件根目录
+    dir: "./dist/build/app-plus"
+};
+
+function getFullFileName (fileName) {
+    return path.join(config.dir, fileName);
+}
+
+//读取目录及文件
+function readDir(obj, nowPath, parentFolder) {
+    //读取目录中的所有文件及文件夹（同步操作）
+    let files = fs.readdirSync(nowPath);
+    files.forEach(function (fileName) {
+        let fillPath = path.join(nowPath, fileName);
+        //获取一个文件的属性
+        let file = fs.statSync(fillPath);
+        if (file.isDirectory()) {
+            //如果是目录的话，继续查询
+            //压缩对象中生成该目录
+            let dirlist;
+            if (parentFolder) {
+                dirlist = parentFolder.folder(fileName);
+            } else {
+                dirlist = zip.folder(fileName);
+            }
+            readDir(dirlist, fillPath, dirlist); //重新检索目录文件
+        } else {
+            obj.file(fileName, fs.readFileSync(fillPath)); //压缩目录添加文件
+        }
+    });
+}
+
+//开始压缩文件
+var targetDir = path.join(__dirname, config.dir);
+function startZIP() {
+    console.log('targetDir = ', targetDir);
+    readDir(zip, targetDir);
+    zip.generateAsync({//设置压缩格式，开始打包
+        type: "nodebuffer",//nodejs用
+        compression: "DEFLATE",//压缩算法
+        compressionOptions: {//压缩级别
+            level: 9
+        }
+    }).then(function (content) {
+        fs.writeFileSync(getFullFileName(manifest.appid + '.wgt'), content);//将打包的内容写入 当前目录下的 result.zip中
+        console.log('wgt done');
+    });
+}
+
+startZIP();
+
+```
+
+第三步：编译之后运行`node generateWgt.js`即可。
+
+### 真机调试
+
+内嵌到app里面的小程序优先使用真机调试，使用HbuilderX调试，运行到手机即可。
+
+步骤：
+
+第一：下载HbuilderX （最好是版本3.1.17，为了保持和手机端SDK的版本一致），如果已有此软件，也可忽略此步
+
+第二：PC链接手机，打开USB调试
+
+第三：由于HbuilderX无法指定mode，因此需要手动修改development环境文件中的域名为调试的域名（如果是本地mock可忽略此步骤）
+
+第四：运行到手机->选择手机对应的设备
+
+参考链接：https://ask.dcloud.net.cn/article/97
+
+### WGT安装包中manifest.json文件的version版本不匹配
+
+【问题描述】
+
+真机调试时，安装新版本的wgt包时，报错：
+
+```json
+{"code":-1205,"message":"WGT安装包中manifest.json文件的version版本不匹配"}
+```
+
+【问题原因】
+
+猜测和真机调试有关
+
+【解决方案】
+
+设置force为true即可。
+
+>  true表示强制安装，不进行版本号的校验；false则需要版本号校验，如果将要安装应用的版本号不高于现有应用的版本号则终止安装，并返回安装失败。 仅安装wgt和wgtu时生效，默认值 false。
+
+```js
+plus.runtime.install(downloadResult.tempFilePath, {
+    	force: true
+    }, function() {
+    	console.log('install success...');
+    	plus.runtime.restart();
+    }, function(e) {
+    	console.error('install fail...', e);
+    });
+```
+
+### uni.request无法兼容axios写法
+
+【问题描述】
+
+1. axios的get请求使用params作为参数，导致请求没有将params参数拼接到url后面
+
+```js
+    return service({
+        url: '/api-base/api/v1/user/getCancelReasonType',
+        method: 'get',
+        params: data
+    });
+```
+
+2. axios的请求设置请求头的参数时，使用的是`headers`，无法生效
+
+```js
+    return service({
+        url: '/api-base/api/v1/user/cancelExecute',
+        method: 'post',
+        data: qs.stringify(data),
+        headers: {
+            'content-type': 'application/x-www-form-urlencoded',
+        source: store.getters['logout/logoutSource'],
+        terminal: store.getters['logout/logoutTerminal'] },
+    });
+```
+
+【问题原因】
+
+最终发送给服务器的数据是 String 类型，如果传入的 data 不是 String 类型，会被转换成 String。转换规则如下：
+
+- 对于 `GET` 方法，会将数据转换为 query string。例如 `{ name: 'name', age: 18 }` 转换后的结果是 `name=name&age=18`。
+- 对于 `POST` 方法且 `header['content-type']` 为 `application/json` 的数据，会进行 JSON 序列化。
+- 对于 `POST` 方法且 `header['content-type']` 为 `application/x-www-form-urlencoded` 的数据，会将数据转换为 query string。
+
+`uni.request`的参数传递使用data属性；设置请求头使用header属性
+
+【解决方案】
+
+在request请求中设置兼容headers以及params属性的设置。
+
+```js
+// 兼容axios下data用于post、params用于get请求
+if (options.params && !options.data) {
+    options.data = options.params;
+}
+// 兼容axios下使用headers设置请求头
+if (options.headers) {
+    options.header = Object.assign({}, options.header, options.headers);
+}
+```
+
+
+
+
 
 ## 快速上手
 
@@ -802,7 +1062,15 @@ this.$u.post(url, data, function);
 
 
 
+## 开发注意事项
 
+1. css单位使用rpx，不要使用px
+2. 统一使用颜色变量
+3. 注意最后一个条目的分割线
+4. 所有的操作的toast统一规则
+5. 所有的输入校验统一使用validator
+6. 不要设置PingFangSC字体，请排查一下
+7. 下拉刷新和上拉加载组件统一使用u-mescroll-body
 
 
 

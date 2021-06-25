@@ -2,6 +2,95 @@
 
 # 移动端兼容
 
+## 通有问题
+
+### 验证码输入框在ios的输入法中使用英文会自动加上空格
+
+【问题描述】
+
+移动端使用ios英文输入法时，先输入“a”，然后输入“b”，实际输入框的值会显示"a b"，对于验证码输入框来说，严重影响用户体验，部分安卓手机的输入法也是同样的问题。
+
+【问题原因】
+
+输入法自带的问题，认为两次输入是两个单词，使用空格连接在一起
+
+【解决方案】
+
+目前的验证码普遍使用input监听输入法，然后将值设置到value里面去，因此最先下想到的方案就是在设置valueModel时，将空格剔除即可。
+
+```vue
+< template>
+			<input
+                :disabled="disabledKeyboard"
+                :value="valueModel"
+                :type="type"
+                :focus="focus"
+                :maxlength="8"
+                @input="getVal"
+                class="u-input"
+                />
+</template>
+<script>
+export default {
+    methods: {
+        getVal(e) {
+                console.log('getVal', e)
+				let {
+					value
+				} = e.detail
+                + value = value.replace(/\s+/g, "");
+				this.valueModel = value;
+                // 判断长度是否超出了maxlength值，理论上不会发生，因为input组件设置了maxlength属性值
+				if (String(value).length > this.maxlength) return;
+				// 未达到maxlength之前，发送change事件，达到后发送finish事件
+				this.$emit('change', value);
+				if (String(value).length == this.maxlength) {
+					this.$emit('finish', value);
+				}
+			}
+    }
+}
+</script>
+```
+
+但是在测试过程中发现，没有效果，因为将剔除的值设置到valueModel中去后，实际上的显示值确实变化了，但是从输入法中获取到的值，还是携带有空格，并没有变化，因此无法达到真正去除空格的目的。
+
+也就是说我输入“ggg”，然后再输入“ffff”，实际上输入法认为是“ggg ffff”，虽然我将空格去除了，实际上显示的也是"gggffff"，但是已经再次输入的时候，输入法认为已经输入达到8的最大值，导致无法继续输入。
+
+因此转变思路不在input事件中修改value的值，而是通过v-model双向绑定，然后监听valueModel的值，在watch里面进行空格剔除，测试可行
+
+```vue
+< template>
+			<input
+                :disabled="disabledKeyboard"
+                v-model="valueModel"
+                :type="type"
+                :focus="focus"
+                :maxlength="maxlength"
+                class="u-input"
+                />
+</template>
+<script>
+export default {
+		watch: {
+            valueModel(newVal) {
+                let trimValue = newVal.replace(/\s+/g, '');
+                if (trimValue === newVal) {
+                    this.$emit('change', newVal);
+                    if (String(newVal).length == this.maxlength) {
+                        this.$emit('finish', newVal);
+                    }
+                } else {
+                    this.valueModel = trimValue;
+                }
+            }
+		},
+}
+</script>
+```
+
+
+
 ## 小程序
 
 ### `scroll-view`在部分IOS手机上无法滑动
