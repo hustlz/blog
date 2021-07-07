@@ -1064,23 +1064,47 @@ this.$u.post(url, data, function);
 
 ## 开发注意事项
 
-1. css单位使用rpx，不要使用px
-2. 统一使用颜色变量
-3. 注意最后一个条目的分割线
-4. 所有的操作的toast统一规则
-5. 所有的输入校验统一使用validator
-6. 不要设置PingFangSC字体，请排查一下
+1. 单位使用rpx，不要使用px
+
+2. 统一使用颜色变量，禁止直接使用颜色值
+
+3. 注意最后一个条目的分割线是不需要的
+
+4. 所有的操作的toast统一规则显示（UI规范待确认）
+
+5. 所有的输入校验统一使用validator（所有的表单输入，都需要明确前端的校验规则）
+
+6. 不要设置PingFangSC字体，请排查一下（安卓没有此字体，设置成medium会导致安卓无加粗功能）
+
 7. 下拉刷新和上拉加载组件统一使用u-mescroll-body
 
+8. 使用多语言，添加命名空间，不然会被覆盖，pModuleA、cComponentA等，每个页面应该有自己的多语言，除了最外面的多语言，尽量不要共用
 
+9. 页面结构布局，最好是一个页面一个目录，每个页面都自己的多语言，不要混用
 
+10. 导航栏的使用需要符合UI规范，一般只需使用title即可
 
+11. css可以直接使用--status-bar-height、--safe-bar-height；变量设置状态栏，底部安全栏的高度。（小程序无法使用，小程序使用的status-bar-height是使用的固定值，在编译阶段进行替换；APP也无法使用，没有办法获取到document对象，所以无法设置style的css变量）
 
+    ```js
+    if (uni.canIUse('css.var')) {
+        let style = document.documentElement.style;
+        style.setProperty('--safe-bar-height', isFullScreen + 'px');
+    }
+    ```
 
+    如果需要使用css变量进行calc计算，需要在页面的最外层定义对应的css变量：
 
+    ```vue
+    <view :style="{'--css-var': isFullScreen + 'px'}"></view>
+    <style>
+    .test {
+    	height: calc(100%-var(--css-var));
+    }
+    </style>
+    ```
 
-
-
+    如果不需要进行calc计算，则直接在js中计算对应的style对象绑定到节点上即可。
 
 
 
